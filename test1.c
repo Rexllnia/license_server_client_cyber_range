@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "Usage: %s <activation_code> [device_id] [server_host] [server_port]\n", argv[0]);
 			fprintf(stderr, "\nExamples:\n");
 			fprintf(stderr, "  %s VALID_CODE\n", argv[0]);
-			fprintf(stderr, "  %s VALID_CODE PC001 127.0.0.1 22345\n", argv[0]);
+		fprintf(stderr, "  %s VALID_CODE PC001 ::1 22345\n", argv[0]);
 			fprintf(stderr, "\nTest Codes:\n");
 			fprintf(stderr, "  VALID_CODE        - Never expires, unlimited devices\n");
 			fprintf(stderr, "  CODE_ABC123       - Expires in 30 days, max 5 devices\n");
@@ -31,9 +31,9 @@ int main(int argc, char *argv[]) {
 		}
 
 		const char *activation_code = argv[1];
-		const char *device_id = (argc > 2) ? argv[2] : "DEFAULT_DEVICE";
-		const char *host = (argc > 3) ? argv[3] : "127.0.0.1";
-		int port = (argc > 4) ? atoi(argv[4]) : 22345;
+		const char *host = (argc > 2) ? argv[2] : "::1";
+		int port = (argc > 3) ? atoi(argv[3]) : 22345;
+		const char *device_id = (argc > 4) ? argv[4] : "DEFAULT_DEVICE";
 
 		printf("=== Commercial License Verification Tool v1.0 ===\n\n");
 		printf("[app] Activation Code Verification\n");

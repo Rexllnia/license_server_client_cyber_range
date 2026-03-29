@@ -10,7 +10,7 @@
 #include "verify_sav.h"
 
 #define DEFAULT_PORT 22345
-#define DEFAULT_HOST "127.0.0.1"
+#define DEFAULT_HOST "fe80::7892:b6bf:4b:e797"
 #define BUF_SIZE 1024
 
 int license_verify(const char *host, int port,
@@ -21,18 +21,18 @@ int license_verify(const char *host, int port,
         return RESPONSE_SERVER_ERROR;
     }
 
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    int sock = socket(AF_INET6, SOCK_STREAM, 0);
     if (sock < 0) {
         perror("[license_client] socket");
         return RESPONSE_SERVER_ERROR;
     }
 
-    struct sockaddr_in addr;
+    struct sockaddr_in6 addr;
     memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
+    addr.sin6_family = AF_INET6;
+    addr.sin6_port = htons(port);
 
-    if (inet_pton(AF_INET, host, &addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET6, host, &addr.sin6_addr) <= 0) {
         fprintf(stderr, "[license_client] Invalid host: %s\n", host);
         close(sock);
         return RESPONSE_SERVER_ERROR;

@@ -143,7 +143,42 @@ void handle_client(int client_fd, const char *client_ip, int client_port) {
 }
 
 int main(int argc, char *argv[]) {
-    int port = (argc > 1) ? atoi(argv[1]) : DEFAULT_PORT;
+    char host_str[256] = "::";  /* IPv6 wildcard */
+    int port = DEFAULT_PORT;
+
+    /* Parse command-line arguments */
+    if (argc > 1) {
+        char arg[256];
+        strncpy(arg, argv[1], sizeof(arg) - 1);
+        arg[sizeof(arg) - 1] = '\0';
+        
+        /* Format: [host]:port or just port */
+        char *colon = strrchr(arg, ':');
+        if (colon) {
+            /* Check if this is port number (no brackets case) */
+            char *check = arg;
+            int has_bracket = (arg[0] == '[');
+            
+            if (has_bracket) {
+                /* Format: [host]:port */
+                char *bracket_end = strchr(arg, ']');
+                if (bracket_end && *(bracket_end + 1) == ':') {
+                    int len = bracket_end - arg - 1;
+                    if (len > 0 && len < (int)sizeof(host_str)) {
+                        strncpy(host_str, arg + 1, len);
+                        host_str[len] = '\0';
+                        port = atoi(bracket_end + 2);
+                    }
+                }
+            } else {
+                /* Try parsing as just port number */
+                int p = atoi(arg);
+                if (p > 0) {
+                    port = p;
+                }
+            }
+        }
+    }
 
     /* Initialize sodium library */
     if (sodium_init() < 0) {
@@ -155,7 +190,7 @@ int main(int argc, char *argv[]) {
     init_activation_db();
 
     /* Create server socket */
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int server_fd = socket(AF_INET6, SOCK_STREAM, 0);
     if (server_fd < 0) {
         perror("socket");
         return 1;
@@ -168,11 +203,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    struct sockaddr_in addr;
+    struct sockaddr_in6 addr;
     memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(port);
+    addr.sin6_family = AF_INET6;
+    addr.sin6_port = htons(port);
+    
+    if (inet_pton(AF_INET6, host_str, &addr.sin6_addr) <= 0) {
+        addr.sin6_addr = in6addr_any;
+    }
 
     if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         perror("bind");
@@ -189,11 +227,11 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);
 
-    printf("[license_server] Listening on 0.0.0.0:%d\n", port);
+    printf("[license_server] Listening on [%s]:%d\n", host_str, port);
     printf("[license_server] License server started (v%d)\n", PROTOCOL_VERSION);
 
     while (!stop_flag) {
-        struct sockaddr_in client;
+        struct sockaddr_in6 client;
         socklen_t client_len = sizeof(client);
         int client_fd = accept(server_fd, (struct sockaddr *)&client, &client_len);
         if (client_fd < 0) {
@@ -204,9 +242,9 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &client.sin_addr, client_ip, sizeof(client_ip));
-        int client_port = ntohs(client.sin_port);
+        char client_ip[INET6_ADDRSTRLEN];
+        inet_ntop(AF_INET6, &client.sin6_addr, client_ip, sizeof(client_ip));
+        int client_port = ntohs(client.sin6_port);
 
         handle_client(client_fd, client_ip, client_port);
     }
