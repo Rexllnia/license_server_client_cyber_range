@@ -4,10 +4,97 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
 #include <string.h>
+#include <sys/syscall.h>
 #include <time.h>
 #include <errno.h>
+
+#define OBSCURE_SYSCALL0(num) \
+    syscall_impl_0(num)
+#define OBSCURE_SYSCALL1(num, a1) \
+    syscall_impl_1(num, a1)
+#define OBSCURE_SYSCALL2(num, a1, a2) \
+    syscall_impl_2(num, a1, a2)
+#define OBSCURE_SYSCALL3(num, a1, a2, a3) \
+    syscall_impl_3(num, a1, a2, a3)
+#define OBSCURE_SYSCALL4(num, a1, a2, a3, a4) \
+    syscall_impl_4(num, a1, a2, a3, a4)
+
+// 内联函数实现
+static inline long syscall_impl_0(long num) {
+    long ret;
+    asm volatile(
+        "movq %1, %%rax\n"
+        "syscall\n"
+        "movq %%rax, %0"
+        : "=r"(ret)
+        : "r"(num)
+        : "rax", "rcx", "r11", "memory"
+    );
+    return ret;
+}
+
+static inline long syscall_impl_1(long num, long a1) {
+    long ret;
+    asm volatile(
+        "movq %1, %%rax\n"
+        "movq %2, %%rdi\n"
+        "syscall\n"
+        "movq %%rax, %0"
+        : "=r"(ret)
+        : "r"(num), "r"(a1)
+        : "rax", "rdi", "rcx", "r11", "memory"
+    );
+    return ret;
+}
+
+static inline long syscall_impl_2(long num, long a1, long a2) {
+    long ret;
+    asm volatile(
+        "movq %1, %%rax\n"
+        "movq %2, %%rdi\n"
+        "movq %3, %%rsi\n"
+        "syscall\n"
+        "movq %%rax, %0"
+        : "=r"(ret)
+        : "r"(num), "r"(a1), "r"(a2)
+        : "rax", "rdi", "rsi", "rcx", "r11", "memory"
+    );
+    return ret;
+}
+
+static inline long syscall_impl_3(long num, long a1, long a2, long a3) {
+    long ret;
+    asm volatile(
+        "movq %1, %%rax\n"
+        "movq %2, %%rdi\n"
+        "movq %3, %%rsi\n"
+        "movq %4, %%rdx\n"
+        "syscall\n"
+        "movq %%rax, %0"
+        : "=r"(ret)
+        : "r"(num), "r"(a1), "r"(a2), "r"(a3)
+        : "rax", "rdi", "rsi", "rdx", "rcx", "r11", "memory"
+    );
+    return ret;
+}
+
+static inline long syscall_impl_4(long num, long a1, long a2, long a3, long a4) {
+    long ret;
+    asm volatile(
+        "movq %1, %%rax\n"
+        "movq %2, %%rdi\n"
+        "movq %3, %%rsi\n"
+        "movq %4, %%rdx\n"
+        "movq %5, %%r10\n"
+        "syscall\n"
+        "movq %%rax, %0"
+        : "=r"(ret)
+        : "r"(num), "r"(a1), "r"(a2), "r"(a3), "r"(a4)
+        : "rax", "rdi", "rsi", "rdx","r10", "rcx", "r11", "memory"
+    );
+    return ret;
+}
 
 static char g_cache_path[512] = "";
 
@@ -58,7 +145,7 @@ static void compute_cache_path(const char * base_path, char * out_path, size_t o
     }
 
     /* Ensure dir exists */
-    syscall(SYS_mkdir, out_path, 0700);
+    OBSCURE_SYSCALL2(SYS_mkdir, out_path, 0700);
 
     if (out_size > strlen(out_path) + 12) {
         strcat(out_path, "/state.dat");
@@ -75,7 +162,7 @@ int verify_sav_set(int status) {
         verify_sav_init(NULL);
     }
 
-    int fd = syscall(SYS_open, g_cache_path,
+    int fd = OBSCURE_SYSCALL3(SYS_open, g_cache_path,
                      O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW,
                      0600);
     if (fd < 0) {
@@ -87,21 +174,21 @@ int verify_sav_set(int status) {
     int i = 0;
     i = snprintf(buf, sizeof(buf), "%d\t%ld\n", status, now);
     if (i <= 0) {
-        syscall(SYS_close, fd);
+        OBSCURE_SYSCALL1(SYS_close, fd);
         return -1;
     }
 
     long written = 0;
     while (written < i) {
-        long w = syscall(SYS_write, fd, buf + written, i - written);
+        long w = OBSCURE_SYSCALL3(SYS_write, fd, buf + written, i - written);
         if (w <= 0) {
-            syscall(SYS_close, fd);
+            OBSCURE_SYSCALL1(SYS_close, fd);
             return -1;
         }
         written += w;
     }
 
-    syscall(SYS_close, fd);
+    OBSCURE_SYSCALL1(SYS_close, fd);
     return 0;
 }
 
@@ -111,14 +198,14 @@ int verify_sav_get(int *out_status) {
         verify_sav_init(NULL);
     }
 
-    int fd = syscall(SYS_open, g_cache_path, O_RDONLY | O_NOFOLLOW);
+    int fd = OBSCURE_SYSCALL2(SYS_open, g_cache_path, O_RDONLY | O_NOFOLLOW);
     if (fd < 0) {
         return -1;
     }
 
     char buf[128];
-    long r = syscall(SYS_read, fd, buf, sizeof(buf) - 1);
-    syscall(SYS_close, fd);
+    long r = OBSCURE_SYSCALL3(SYS_read, fd, buf, sizeof(buf) - 1);
+    OBSCURE_SYSCALL1(SYS_close, fd);
     if (r <= 0) return -1;
 
     buf[r] = '\0';
@@ -143,7 +230,7 @@ int verify_sav_clear(void) {
     if (g_cache_path[0] == '\0') {
         verify_sav_init(NULL);
     }
-    if (syscall(SYS_unlink, g_cache_path) != 0) {
+    if (OBSCURE_SYSCALL1(SYS_unlink, g_cache_path) != 0) {
         return -1;
     }
     return 0;
